@@ -1,0 +1,29 @@
+name: Public runner canary
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-runner-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = "Linux"
+          test "$RUNNER_ARCH" = "X64"
+          {
+            echo "## Public runner is ready"
+            echo
+            echo "- OS: \`$RUNNER_OS\`"
+            echo "- Architecture: \`$RUNNER_ARCH\`"
+          } >> "$GITHUB_STEP_SUMMARY"

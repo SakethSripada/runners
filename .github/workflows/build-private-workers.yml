@@ -1,0 +1,152 @@
+name: Build private GPU workers
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact commit from the private VideoEditor repository
+        required: true
+        type: string
+      workload:
+        description: Worker images to build
+        required: true
+        type: choice
+        default: core
+        options:
+          - core
+          - all
+          - tracking
+          - reasoning
+          - reasoning-escalation
+          - speech
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-worker-build-${{ inputs.source_sha }}-${{ inputs.workload }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_NAMESPACE: sakethsripada
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        name: Validate source and select workers
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WORKLOAD: ${{ inputs.workload }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::source_sha must be an exact lowercase 40-character commit SHA"
+            exit 1
+          fi
+          case "$WORKLOAD" in
+            core)
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              ;;
+            all)
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"},{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full"},{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              ;;
+            tracking)
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"}]}'
+              ;;
+            reasoning)
+              matrix='{"include":[{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"}]}'
+              ;;
+            reasoning-escalation)
+              matrix='{"include":[{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full"}]}'
+              ;;
+            speech)
+              matrix='{"include":[{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              ;;
+            *)
+              echo "::error::Unsupported workload selection"
+              exit 1
+              ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact private source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SakethSripada/VideoEditor
+          ref: ${{ inputs.source_sha }}
+          ssh-key: ${{ secrets.VIDEOEDITOR_DEPLOY_KEY }}
+          persist-credentials: false
+          path: source
+
+      - name: Verify checked-out commit
+        shell: bash
+        working-directory: source
+        env:
+          EXPECTED_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Reclaim hosted-runner space
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Log in to private GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - id: build
+        name: Build and publish ${{ matrix.workload }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: source
+          file: source/services/vision-worker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ inputs.source_sha }}
+          secrets: |
+            hf_token=${{ secrets.HF_TOKEN }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
+      - name: Record immutable image
+        shell: bash
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WORKLOAD: ${{ matrix.workload }}
+        run: |
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          {
+            echo "## $WORKLOAD"
+            echo
+            echo "- Source: \`$SOURCE_SHA\`"
+            echo "- Image: \`$IMAGE@$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
