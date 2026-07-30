@@ -30,6 +30,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   REGISTRY_NAMESPACE: sakethsripada
+  DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 jobs:
   prepare:
