@@ -53,22 +53,22 @@ jobs:
           fi
           case "$WORKLOAD" in
             core)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
               ;;
             all)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"},{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full"},{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
               ;;
             tracking)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"}]}'
               ;;
             reasoning)
-              matrix='{"include":[{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning"}]}'
+              matrix='{"include":[{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"}]}'
               ;;
             reasoning-escalation)
-              matrix='{"include":[{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full"}]}'
+              matrix='{"include":[{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full","parentCache":"video-editor-reasoning"}]}'
               ;;
             speech)
-              matrix='{"include":[{"workload":"speech","target":"speech","image":"video-editor-speech"}]}'
+              matrix='{"include":[{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
               ;;
             *)
               echo "::error::Unsupported workload selection"
@@ -132,7 +132,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ inputs.source_sha }}
           secrets: |
             hf_token=${{ secrets.HF_TOKEN }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:buildcache
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.parentCache }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
 
       - name: Record immutable image
