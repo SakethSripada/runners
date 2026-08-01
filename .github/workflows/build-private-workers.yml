@@ -53,13 +53,13 @@ jobs:
           fi
           case "$WORKLOAD" in
             core)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking-runtime","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
               ;;
             all)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking-runtime","parentCache":"video-editor-tracking"},{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"},{"workload":"reasoning-escalation","target":"reasoning-full","image":"video-editor-reasoning-full","parentCache":"video-editor-reasoning"},{"workload":"speech","target":"speech","image":"video-editor-speech","parentCache":"video-editor-speech"}]}'
               ;;
             tracking)
-              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking","parentCache":"video-editor-tracking"}]}'
+              matrix='{"include":[{"workload":"tracking","target":"tracking","image":"video-editor-tracking-runtime","parentCache":"video-editor-tracking"}]}'
               ;;
             reasoning)
               matrix='{"include":[{"workload":"reasoning","target":"reasoning","image":"video-editor-reasoning","parentCache":"video-editor-reasoning"}]}'
